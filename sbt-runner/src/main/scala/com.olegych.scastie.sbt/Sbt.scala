@@ -4,12 +4,14 @@ package sbt
 import api._
 
 import scala.util.Random
+import scala.collection.JavaConverters._
 import System.{lineSeparator => nl}
 
 import org.slf4j.LoggerFactory
 import java.nio.file._
 import java.io.{BufferedReader, IOException, InputStreamReader}
 import java.nio.charset.StandardCharsets
+import java.io.File
 
 class Sbt(defaultConfig: Inputs, name: String) {
 
@@ -57,10 +59,14 @@ class Sbt(defaultConfig: Inputs, name: String) {
   def scalaJsSourceMapContent(): Option[String] = {
     slurp(sbtDir.resolve(ScalaTarget.Js.sourceMapFilename))
   }
+  
+  private val sbtCommand = 
+    if (System.getProperty("os.name").toLowerCase().contains("windows")) List("cmd.exe", "/C", "sbt").asJava
+    else List("sbt").asJava
 
   private val (process, fin, fout) = {
     log.info("Starting sbt process")
-    val builder = new ProcessBuilder("sbt").directory(sbtDir.toFile)
+    val builder = new ProcessBuilder(sbtCommand).directory(sbtDir.toFile)
     builder
       .environment()
       .put(
