@@ -39,6 +39,7 @@ class Sbt(defaultConfig: Inputs, name: String) {
   private val secretSbtConfigExtra = s"""
                                         |// this is where the ensime-server snapshots are hosted
                                         |resolvers += Resolver.sonatypeRepo("snapshots")
+                                        |resolvers += "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
                                         |libraryDependencies += "org.ensime" %% "ensime" % "$ensimeVersion"
                                         |""".stripMargin
 
