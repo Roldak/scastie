@@ -13,11 +13,12 @@ import autowire._
 import upickle.default.{read => uread}
 
 import org.scalajs.dom._
+import scala.scalajs.js.annotation._
 
 import scala.util.{Failure, Success}
 import scala.concurrent.Future
 
-class ScastieBackend(scope: BackendScope[Scastie, ScastieState]) {
+class ScastieBackend(val scope: BackendScope[Scastie, ScastieState]) {
   scope.props.map(_.router)
   scope.props.map(_.snippetId)
   scope.props.map(_.oldSnippetId)
@@ -25,6 +26,7 @@ class ScastieBackend(scope: BackendScope[Scastie, ScastieState]) {
   scope.props.map(_.targetType)
 
   Global.subscribe(scope)
+  ScastieExports.backend = this
 
   def goHome: Callback = {
     scope.props.flatMap(
@@ -559,4 +561,26 @@ class ScastieBackend(scope: BackendScope[Scastie, ScastieState]) {
   def clearCompletions(): Callback = {
     scope.modState(_.setCompletions(List()))
   }
+}
+
+@JSExportTopLevel("ScastieExports")
+object ScastieExports {
+  var backend: ScastieBackend = _
+
+  @JSExport
+  def hasInputChanged(): Boolean = backend.scope.state.map(_.inputsHasChanged).runNow()
+
+  @JSExport
+  def replaceCode(from: Int, to: Int, by: String): Unit = {
+    backend.scope.modState(s => 
+      s.copyAndSave(
+        inputs = s.inputs.copy(
+          code = s.inputs.code.substring(0, from) + by + s.inputs.code.substring(to)
+        )
+      )
+    ).runNow()
+  }
+  
+  @JSExport
+  def run(): Unit = backend.run.runNow()
 }
