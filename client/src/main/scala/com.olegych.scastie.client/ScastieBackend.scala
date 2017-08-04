@@ -567,15 +567,27 @@ class ScastieBackend(val scope: BackendScope[Scastie, ScastieState]) {
 object ScastieExports {
   var backend: ScastieBackend = _
 
+  private val pattern = """%%%(\d+)->(\d+)%%%""".r
+  
+  private def substitute(s: String): String = {
+    pattern.replaceAllIn(s, _ match {
+      case pattern(start, end) => getCode(start.toInt, end.toInt)
+    })
+  }
+
+  @JSExport
+  def getCode(from: Int, to: Int): String = backend.scope.state.map(_.inputs.code.substring(from, to)).runNow()
+
   @JSExport
   def hasInputChanged(): Boolean = backend.scope.state.map(_.inputsHasChanged).runNow()
 
   @JSExport
   def replaceCode(from: Int, to: Int, by: String): Unit = {
+    
     backend.scope.modState(s => 
       s.copyAndSave(
         inputs = s.inputs.copy(
-          code = s.inputs.code.substring(0, from) + by + s.inputs.code.substring(to)
+          code = s.inputs.code.substring(0, from) + substitute(by) + s.inputs.code.substring(to)
         )
       )
     ).runNow()
