@@ -571,23 +571,40 @@ object ScastieExports {
   
   private def substitute(s: String): String = {
     pattern.replaceAllIn(s, _ match {
-      case pattern(start, end) => getCode(start.toInt, end.toInt)
+      case pattern(start, end) => getCode.substring(start.toInt, end.toInt)
     })
   }
 
+  private def indentAccordingToPosition(pos: Int, toIndent: String): String = {
+    def copyIndents(chrs: List[Char]): String = chrs match {
+      case ' ' :: ' ' :: rest => "  " + copyIndents(rest)
+      case '\t' :: rest => "\t" + copyIndents(rest)
+      case _ => ""
+    }
+
+    val code = getCode
+    val indentation = if (code.size > pos) {
+      val newlineIndex = code.lastIndexOf('\n', pos)
+      if (newlineIndex != -1) copyIndents(code.substring(newlineIndex + 1, pos).toList)
+      else ""
+    } else ""
+
+    toIndent.replaceAllLiterally("\n", "\n" + indentation)
+  }
+
   @JSExport
-  def getCode(from: Int, to: Int): String = backend.scope.state.map(_.inputs.code.substring(from, to)).runNow()
+  def getCode: String = backend.scope.state.map(_.inputs.code).runNow()
 
   @JSExport
   def hasInputChanged(): Boolean = backend.scope.state.map(_.inputsHasChanged).runNow()
 
   @JSExport
   def replaceCode(from: Int, to: Int, by: String): Unit = {
-    
+    val indented = indentAccordingToPosition(from, by)
     backend.scope.modState(s => 
       s.copyAndSave(
         inputs = s.inputs.copy(
-          code = s.inputs.code.substring(0, from) + substitute(by) + s.inputs.code.substring(to)
+          code = s.inputs.code.substring(0, from) + substitute(indented) + s.inputs.code.substring(to)
         )
       )
     ).runNow()
