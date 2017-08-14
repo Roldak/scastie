@@ -567,14 +567,51 @@ class ScastieBackend(val scope: BackendScope[Scastie, ScastieState]) {
 object ScastieExports {
   var backend: ScastieBackend = _
 
-  private val pattern = """%%%(\d+)->(\d+)%%%""".r
+  private val subPattern = """%%%(\d+)->(\d+)%%%""".r
+  private val alignPattern = """%%%([LR])ALIGN%%%""".r
   
   private def substitute(s: String): String = {
-    pattern.replaceAllIn(s, _ match {
-      case pattern(start, end) => getCode.substring(start.toInt, end.toInt)
+    subPattern.replaceAllIn(s, _ match {
+      case subPattern(start, end) => getCode.substring(start.toInt, end.toInt)
     })
   }
-
+  
+  private def align(s: String): String = {
+    def findAlignmentMarks(s: String): (List[(Int, Char)], String) = alignPattern.findFirstMatchIn(s) match {
+      case Some(m) => m.matched match {
+        case alignPattern(side) =>
+          val (idxs, str) = findAlignmentMarks(s.substring(0, m.start) + s.substring(m.end))
+          ((m.start, side.head) :: idxs, str)
+      }
+      case _ => (Nil, s)
+    }
+    
+    def findSurroundingBlanks(str: String, pos: Int): (Int, Int) = {
+      val ridx = str.indexOf(" ", pos)
+      (str.lastIndexOf(" ", pos), ridx + str.substring(ridx).takeWhile(_ == ' ').size)
+    }
+    
+    val (marks, toAlign) = findAlignmentMarks(s)
+    val (leftDelims, rightDelims) = marks.map(m => findSurroundingBlanks(toAlign, m._1)).unzip
+    
+    val rightIdxes = rightDelims
+    val leftIdxes = leftDelims.zip(0 :: rightDelims).zip(marks.map(_._2)).map {
+      case ((ldelim, prevRdelim), side) => if (side == 'L') ldelim else prevRdelim
+    }
+    
+    val parts = (0 :: rightIdxes).zip(marks.map(_._1))
+    val partsLength = parts.map { case (l, r) => r - l }
+    val maxLength = partsLength.max
+    val lengthDiffs = partsLength.map(maxLength - _)
+    
+    leftIdxes.zip(rightIdxes).zip(lengthDiffs).foldRight(toAlign) {
+      case (((lidx, ridx), lendiff), str) =>
+        val (lstr, rstr) = str.splitAt(ridx)
+        val (llstr, rlstr) = lstr.splitAt(lidx)
+        llstr + " " * lendiff + rlstr + "\n" + rstr
+    }
+  }
+  
   private def indentAccordingToPosition(pos: Int, toIndent: String): String = {
     def copyIndents(chrs: List[Char]): String = chrs match {
       case ' ' :: ' ' :: rest => "  " + copyIndents(rest)
@@ -600,11 +637,13 @@ object ScastieExports {
 
   @JSExport
   def replaceCode(from: Int, to: Int, by: String): Unit = {
-    val indented = indentAccordingToPosition(from, by)
+    val substituted = substitute(by)
+    val aligned = align(substituted)
+    val indented = indentAccordingToPosition(from, aligned)
     backend.scope.modState(s => 
       s.copyAndSave(
         inputs = s.inputs.copy(
-          code = s.inputs.code.substring(0, from) + substitute(indented) + s.inputs.code.substring(to)
+          code = s.inputs.code.substring(0, from) + indented + s.inputs.code.substring(to)
         )
       )
     ).runNow()
