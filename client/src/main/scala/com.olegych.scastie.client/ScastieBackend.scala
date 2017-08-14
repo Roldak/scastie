@@ -592,24 +592,26 @@ object ScastieExports {
     }
     
     val (marks, toAlign) = findAlignmentMarks(s)
-    val (leftDelims, rightDelims) = marks.map(m => findSurroundingBlanks(toAlign, m._1)).unzip
-    
-    val rightIdxes = rightDelims
-    val leftIdxes = leftDelims.zip(0 :: rightDelims).zip(marks.map(_._2)).map {
-      case ((ldelim, prevRdelim), side) => if (side == 'L') ldelim else prevRdelim
-    }
-    
-    val parts = (0 :: rightIdxes).zip(marks.map(_._1))
-    val partsLength = parts.map { case (l, r) => r - l }
-    val maxLength = partsLength.max
-    val lengthDiffs = partsLength.map(maxLength - _)
-    
-    leftIdxes.zip(rightIdxes).zip(lengthDiffs).foldRight(toAlign) {
-      case (((lidx, ridx), lendiff), str) =>
-        val (lstr, rstr) = str.splitAt(ridx)
-        val (llstr, rlstr) = lstr.splitAt(lidx)
-        llstr + " " * lendiff + rlstr + "\n" + rstr
-    }
+    if (!marks.isEmpty) {
+      val (leftDelims, rightDelims) = marks.map(m => findSurroundingBlanks(toAlign, m._1)).unzip
+      
+      val rightIdxes = rightDelims
+      val leftIdxes = leftDelims.zip(0 :: rightDelims).zip(marks.map(_._2)).map {
+        case ((ldelim, prevRdelim), side) => if (side == 'L') ldelim else prevRdelim
+      }
+      
+      val parts = (0 :: rightIdxes).zip(marks.map(_._1))
+      val partsLength = parts.map { case (l, r) => r - l }
+      val maxLength = partsLength.max
+      val lengthDiffs = partsLength.map(maxLength - _)
+      
+      leftIdxes.zip(rightIdxes).zip(lengthDiffs).foldRight(toAlign) {
+        case (((lidx, ridx), lendiff), str) =>
+          val (lstr, rstr) = str.splitAt(ridx)
+          val (llstr, rlstr) = lstr.splitAt(lidx)
+          llstr + " " * lendiff + rlstr + "\n" + rstr
+      }
+    } else s
   }
   
   private def indentAccordingToPosition(pos: Int, toIndent: String): String = {
