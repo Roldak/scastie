@@ -105,6 +105,22 @@ object Instrument {
 
     val instrumentedCode = Patch(source.tokens, instrumentedCodePatches)
 
+    val runtimePatches = instrumentedCodePatches.map {
+      case Patch(from, to, replacement) =>
+        s"(${to.end - (offset - 1)}, ${replacement.size - (to.end - from.start)})"
+    }
+
+    val original = 
+      s"""|object OriginalFile {
+          |  private def patchesOffsets = List(${runtimePatches.mkString(", ")})
+          |  def getOriginalPos(pos: Int): Int = {
+          |    pos - patchesOffsets.foldLeft(${offset - 1}) {
+          |      case (acc, (p, offset)) => if (pos >= p) acc + offset else acc
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+
     val entryPoint =
       if (!isScalaJs) {
         s"""|object Main {
@@ -127,7 +143,8 @@ object Instrument {
       }
 
     s"""|$instrumentedCode
-        |$entryPoint""".stripMargin
+        |$entryPoint
+        |$original""".stripMargin
   }
 
   private def hasMainMethod(source: Source): Boolean = {
