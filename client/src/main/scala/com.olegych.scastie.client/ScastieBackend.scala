@@ -614,7 +614,8 @@ object ScastieExports {
     } else s
   }
   
-  private def indentAccordingToPosition(pos: Int, toIndent: String): String = {
+  @JSExport
+  def indentAccordingToPosition(pos: Int, toIndent: String): String = {
     def copyIndents(chrs: List[Char]): String = chrs match {
       case ' ' :: ' ' :: rest => "  " + copyIndents(rest)
       case '\t' :: rest => "\t" + copyIndents(rest)
