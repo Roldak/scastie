@@ -5,20 +5,38 @@ import buildinfo.BuildInfo.{version => buildVersion}
 import upickle.default.{ReadWriter, macroRW => upickleMacroRW}
 
 object Inputs {
-  val defaultCode = """List("Hello", "World").mkString("", ", ", "!")"""
+  val defaultCode = 
+    """|import inox._
+       |import inox.trees.{ forall => _, _ }
+       |import inox.trees.dsl._
+       |import welder._
+       |import scastie.welder._
+       |
+       |/* add your symbols here ! */
+       |
+       |val symbols = NoSymbols
+       |
+       |val program = InoxProgram(Context.empty, symbols)
+       |
+       |val theory = assistedTheoryOf(program)
+       |import theory._
+       |""".stripMargin
 
   def default = Inputs(
     worksheetMode = true,
     code = defaultCode,
-    target = ScalaTarget.Jvm.default,
+    target = ScalaTarget.Jvm("2.11.8"),
     libraries = Set(),
     librariesFrom = Map(),
     sbtConfigExtra = """|scalacOptions ++= Seq(
                         |  "-deprecation",
                         |  "-encoding", "UTF-8",
                         |  "-feature",
-                        |  "-unchecked"
-                        |)""".stripMargin,
+                        |  "-unchecked",
+                        |  "-Yrangepos"
+                        |)
+                        |
+                        |libraryDependencies += "ch.epfl.lara" %% "scastiewelder" % "0.0.1"""".stripMargin,
     sbtPluginsConfigExtra = "",
     showInUserProfile = false,
     forked = None
